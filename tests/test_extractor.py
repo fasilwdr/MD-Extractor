@@ -241,3 +241,180 @@ def test_missing_section_raises_key_error():
     e = MDExtractor("# A\n")
     with pytest.raises(KeyError):
         _ = e["Nope"]
+
+
+# ---------------------------------------------------------------- body blocks
+
+
+def test_to_list_flattens_paragraphs_and_bullets():
+    md = dedent(
+        """
+        # Overview
+        Intro paragraph.
+
+        - First feature
+        - Second feature
+        - Third feature
+        """
+    )
+    e = MDExtractor(md)
+    assert e["Overview"].to_list() == [
+        "Intro paragraph.",
+        "First feature",
+        "Second feature",
+        "Third feature",
+    ]
+
+
+def test_to_dict_includes_blocks_with_nested_bullets():
+    md = dedent(
+        """
+        # FAQ
+        - **Q1?**
+
+            Answer one.
+        - **Q2?**
+
+            Answer two.
+        """
+    )
+    e = MDExtractor(md)
+    blocks = e["FAQ"].to_dict()["blocks"]
+    list_block = next(b for b in blocks if b["kind"] == "list")
+    items = list_block["children"]
+    assert items[0]["text"] == "**Q1?**"
+    assert items[0]["children"][0]["text"] == "Answer one."
+    assert items[1]["text"] == "**Q2?**"
+    assert items[1]["children"][0]["text"] == "Answer two."
+
+
+def test_to_dict_keeps_existing_children_for_header_subsections():
+    # Backwards compat: header subsections still live under "children".
+    md = "# A\n## B\nbody\n"
+    e = MDExtractor(md)
+    d = e.to_dict()
+    assert d["children"][0]["title"] == "A"
+    assert d["children"][0]["children"][0]["title"] == "B"
+
+
+def test_blocks_property_is_cached():
+    md = "# A\n- one\n- two\n"
+    e = MDExtractor(md)
+    assert e["A"].blocks is e["A"].blocks
+
+
+def test_to_list_handles_code_and_blockquote():
+    md = dedent(
+        """
+        # Mix
+        Para text.
+
+        ```python
+        x = 1
+        ```
+
+        > a quote line
+        """
+    )
+    e = MDExtractor(md)
+    out = e["Mix"].to_list()
+    assert "Para text." in out
+    assert "x = 1" in out
+    assert "a quote line" in out
+
+
+def test_ordered_list_kind():
+    md = dedent(
+        """
+        # Steps
+        1. first
+        2. second
+        """
+    )
+    e = MDExtractor(md)
+    blocks = e["Steps"].blocks
+    assert blocks[0].kind == "ordered_list"
+    assert [c.text for c in blocks[0].children] == ["first", "second"]
+
+
+# ---------------------------------------------------------------- HTML rendering
+
+
+def test_to_html_paragraphs_and_lists():
+    md = dedent(
+        """
+        # Overview
+        Intro.
+
+        - one
+        - two
+        """
+    )
+    html = MDExtractor(md)["Overview"].to_html()
+    assert "<p>Intro.</p>" in html
+    assert "<ul>" in html and "</ul>" in html
+    assert "<li>one</li>" in html
+    assert "<li>two</li>" in html
+
+
+def test_to_html_inline_formatting():
+    md = "# A\nThis is **bold**, *em*, `code`, and a [link](https://example.com).\n"
+    html = MDExtractor(md)["A"].to_html()
+    assert "<strong>bold</strong>" in html
+    assert "<em>em</em>" in html
+    assert "<code>code</code>" in html
+    assert '<a href="https://example.com">link</a>' in html
+
+
+def test_to_html_image():
+    md = "# A\n![alt text](img.png)\n"
+    html = MDExtractor(md)["A"].to_html()
+    assert '<img src="img.png" alt="alt text">' in html
+
+
+def test_to_html_code_fence_preserves_content():
+    md = dedent(
+        """
+        # A
+        ```python
+        x = 1 < 2
+        ```
+        """
+    )
+    html = MDExtractor(md)["A"].to_html()
+    assert '<pre><code class="language-python">' in html
+    # Content inside <code> must be HTML-escaped.
+    assert "x = 1 &lt; 2" in html
+
+
+def test_to_html_xpath_filters_to_list_items():
+    pytest.importorskip("lxml")
+    md = dedent(
+        """
+        # A
+        Intro.
+
+        - one
+        - two
+        """
+    )
+    matches = MDExtractor(md)["A"].to_html(xpath=".//ul/li")
+    assert isinstance(matches, list)
+    assert len(matches) == 2
+    assert "one" in matches[0]
+    assert "two" in matches[1]
+
+
+def test_to_html_xpath_text_extraction():
+    pytest.importorskip("lxml")
+    md = "# A\n- alpha\n- beta\n"
+    matches = MDExtractor(md)["A"].to_html(xpath=".//li/text()")
+    assert "alpha" in matches
+    assert "beta" in matches
+
+
+def test_extractor_to_list_and_to_html_proxy_to_root():
+    md = "# A\nintro\n- x\n- y\n"
+    e = MDExtractor(md)
+    assert e.to_list() == e.root.to_list()
+    assert e.to_html() == e.root.to_html()

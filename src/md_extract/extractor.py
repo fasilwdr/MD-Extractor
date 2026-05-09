@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Iterator, List, Union
+from typing import Iterator, List, Optional, Union
 
 from md_extract.parser import parse
 from md_extract.section import Section
@@ -123,6 +123,21 @@ class MDExtractor:
     def to_json(self, **kwargs) -> str:
         """Shorthand for ``json.dumps(self.to_dict(), **kwargs)``."""
         return json.dumps(self.to_dict(), **kwargs)
+
+    def to_list(self) -> List[str]:
+        """Flatten the document's body into one entry per top-level block.
+
+        See :meth:`Section.to_list` for the per-section equivalent.
+        """
+        return self._root.to_list()
+
+    def to_html(self, xpath: Optional[str] = None) -> Union[str, List[str]]:
+        """Render the whole document's body to HTML.
+
+        See :meth:`Section.to_html` for the per-section equivalent and
+        for XPath usage notes.
+        """
+        return self._root.to_html(xpath)
 
     def tree(self) -> str:
         """ASCII tree of the document's header structure."""

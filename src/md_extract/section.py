@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from md_extract.blocks import Block, flatten, parse_blocks
+from md_extract.html_renderer import query_xpath, render
+
 
 class Section:
     """A single header (and its body) in a parsed Markdown document.
@@ -21,6 +24,7 @@ class Section:
         "parent",
         "children",
         "_lines",
+        "_blocks_cache",
     )
 
     def __init__(
@@ -39,6 +43,7 @@ class Section:
         self.parent = parent
         self.children: List["Section"] = []
         self._lines = lines
+        self._blocks_cache: Optional[List[Block]] = None
 
     # ------------------------------------------------------------------ slices
 
@@ -110,16 +115,64 @@ class Section:
         for child in self.children:
             yield from child.walk()
 
+    # ------------------------------------------------------------------ body blocks
+
+    @property
+    def blocks(self) -> List[Block]:
+        """Lazy parse of this section's own prose into a block tree.
+
+        The block tree covers paragraphs, ordered/unordered lists with
+        nested items, code fences, and blockquotes. Header subsections
+        of this section are *not* included — those live in
+        :attr:`children`.
+        """
+        if self._blocks_cache is None:
+            self._blocks_cache = parse_blocks(self.text)
+        return self._blocks_cache
+
+    def to_list(self) -> List[str]:
+        """Flatten the body into a list of strings, one per top-level
+        block (or one per top-level list item if the body is a list).
+
+        Useful when you want the section's body as data — e.g. ``Overview``
+        bullets as a list of feature strings — rather than as a header
+        title roster (which is what :meth:`list` returns).
+        """
+        return flatten(self.blocks)
+
     # ------------------------------------------------------------------ serialisation
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert to a JSON-friendly nested dict."""
+        """Convert to a JSON-friendly nested dict.
+
+        Includes both header subsections (``children``) and the body
+        block tree (``blocks``). The ``blocks`` field captures bullet
+        lists, paragraphs, and indented continuations as nested nodes.
+        """
         return {
             "title": self.title,
             "level": self.level,
             "text": self.text,
+            "blocks": [b.to_dict() for b in self.blocks],
             "children": [c.to_dict() for c in self.children],
         }
+
+    def to_html(self, xpath: Optional[str] = None) -> Union[str, List[str]]:
+        """Render this section's body as an HTML fragment.
+
+        Without ``xpath``, returns the full HTML string. With ``xpath``,
+        returns a list of matched fragments (each match is itself an
+        HTML string for element matches, or the raw value for string /
+        attribute matches).
+
+        XPath support requires the optional ``lxml`` extra::
+
+            pip install md-extractor[xpath]
+        """
+        html = render(self.blocks)
+        if xpath is None:
+            return html
+        return query_xpath(html, xpath)
 
     def tree(self, _indent: int = 0) -> str:
         """ASCII tree rendering of this section and its descendants."""

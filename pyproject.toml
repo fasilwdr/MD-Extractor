@@ -30,7 +30,8 @@ classifiers = [
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "lxml>=4.9"]
+xpath = ["lxml>=4.9"]
 
 [project.urls]
 Homepage = "https://github.com/fasilwdr/md-extractor"

@@ -155,10 +155,63 @@ Each `Section` exposes three text views:
 | `body` | no | yes |
 | `text` | no | no — own prose only |
 
+### Body-block view — `to_list()`, `to_dict()`, `to_html()`
+
+Headers give you the *outline* of a document. The block API gives you the
+*body*: paragraphs, ordered/unordered lists with nesting, code fences,
+and blockquotes — parsed lazily on access.
+
+```python
+overview = extractor["Overview"]
+overview.to_list()
+# ['Intro paragraph.', 'First feature', 'Second feature', ...]
+
+overview.to_dict()["blocks"]
+# [{'kind': 'paragraph', 'text': 'Intro paragraph.'},
+#  {'kind': 'list', 'children': [{'kind': 'list_item', 'text': '...'}, ...]}]
+```
+
+Indented continuation paragraphs under a bullet are attached as that
+bullet's `children` — useful for FAQ-style sections where each question
+has an answer paragraph beneath it:
+
+```markdown
+- **Which versions are supported?**
+
+    Versions 19.0 and up.
+```
+
+```python
+faq["blocks"][0]["children"][0]
+# {'kind': 'list_item',
+#  'text': '**Which versions are supported?**',
+#  'children': [{'kind': 'paragraph', 'text': 'Versions 19.0 and up.'}]}
+```
+
+### HTML rendering with optional XPath
+
+```python
+overview.to_html()
+# '<p>Intro paragraph.</p>\n<ul>\n<li>First feature</li>...'
+
+# Filter with XPath (requires the optional [xpath] extra):
+overview.to_html(xpath=".//ul/li")
+# ['<li>First feature</li>', '<li>Second feature</li>', ...]
+```
+
+XPath support is opt-in via the `lxml` extra:
+
+```bash
+pip install md-extractor[xpath]
+```
+
+Without `lxml` installed, `to_html(xpath=...)` raises a clear
+`ModuleNotFoundError`. The plain `to_html()` call has no extra dependency.
+
 ### Serialisation
 
 ```python
-extractor.to_dict()       # JSON-friendly nested dict
+extractor.to_dict()       # JSON-friendly nested dict (now includes "blocks")
 extractor.to_json(indent=2)
 ```
 
@@ -188,7 +241,9 @@ MDExtractor.from_file("docs/guide.md", encoding="utf-8")
 | `.find(title)` | All sections (any depth) with that title. |
 | `.walk()` | Depth-first iterator over every header section. |
 | `.headers()` | Same as `walk()` but materialised as a list. |
-| `.to_dict()` / `.to_json(**json_kw)` | Serialise the tree. |
+| `.to_dict()` / `.to_json(**json_kw)` | Serialise the tree (header children + body blocks). |
+| `.to_list()` | Flatten the body to one entry per top-level block / list item. |
+| `.to_html(xpath=None)` | Render the body to HTML; with `xpath`, return matching fragments (needs `[xpath]` extra). |
 | `.tree()` | ASCII tree rendering. |
 | `.root` | The level-0 root `Section`. |
 | `.content` | Original Markdown source. |
@@ -210,7 +265,10 @@ MDExtractor.from_file("docs/guide.md", encoding="utf-8")
 | `.get_section(*path)` | Multi-step descent. |
 | `.find(title)` | Recursive search. |
 | `.walk()` | Depth-first iterator over self + descendants. |
-| `.to_dict()` | Nested dict. |
+| `.blocks` | Lazy-parsed body block tree (paragraphs, lists, code, blockquotes). |
+| `.to_list()` | Body flattened to one string per top-level block / list item. |
+| `.to_dict()` | Nested dict including `blocks` (body) and `children` (header subsections). |
+| `.to_html(xpath=None)` | Render body to HTML; with `xpath`, return matching fragments. |
 | `.tree()` | ASCII tree. |
 | `str(section)` | Same as `.content`. |
 
