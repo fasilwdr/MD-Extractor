@@ -570,3 +570,141 @@ def test_extractor_to_text_proxies_to_root():
     md = "# A\nhi\n- x\n"
     e = MDExtractor(md)
     assert e.to_text() == e.root.to_text()
+
+
+# ---------------------------------------------------------------- Block.text_plain + soft chain
+
+
+def test_block_text_plain_strips_inline_markers():
+    md = dedent(
+        """
+        # A
+        - **bold** item
+        - *em* item
+        - `code` item
+        - [link](https://x.com) here
+        - ![alt text](pic.png)
+        """
+    )
+    items = MDExtractor(md)["A"].blocks[0].children
+    assert items[0].text_plain == "bold item"
+    assert items[1].text_plain == "em item"
+    assert items[2].text_plain == "code item"
+    assert items[3].text_plain == "link here"
+    assert items[4].text_plain == "alt text"
+
+
+def test_block_text_plain_on_null_block_is_empty():
+    md = "# A\n- one\n"
+    null = MDExtractor(md)["A"].block(99)
+    assert null.text_plain == ""
+
+
+def test_block_get_walks_children_by_index():
+    md = dedent(
+        """
+        # FAQ
+        - **Q1?**
+
+            Answer one.
+        - **Q2?**
+
+            Answer two.
+        """
+    )
+    list_block = MDExtractor(md)["FAQ"].blocks[0]
+    # First item has the answer paragraph as child[0].
+    assert list_block.get(0, 0).text == "Answer one."
+    assert list_block.get(1, 0).text == "Answer two."
+
+
+def test_block_get_out_of_range_returns_falsy_null():
+    md = "# A\n- one\n"
+    list_block = MDExtractor(md)["A"].blocks[0]
+    null = list_block.get(99)
+    assert bool(null) is False
+    assert null.text_plain == ""
+
+
+def test_block_get_chains_through_null():
+    md = "# A\n- one\n"
+    block = MDExtractor(md)["A"].blocks[0]
+    assert block.get(99).get(0).get(5).text_plain == ""
+
+
+def test_section_block_combined_indices():
+    md = dedent(
+        """
+        # Overview
+        intro
+
+        - **alpha**
+        - **beta**
+        """
+    )
+    s = MDExtractor(md)["Overview"]
+    # block(1, 1) == blocks[1].children[1] (the second list item).
+    assert s.block(1, 1).text_plain == "beta"
+    assert s.block(1, 1).text == s.blocks[1].children[1].text
+
+
+def test_section_block_missing_returns_null():
+    md = "# A\nhi\n"
+    s = MDExtractor("# A\nhi\n")["A"]
+    assert s.block(99).text_plain == ""
+    assert s.block(99, 99).text_plain == ""
+    assert not s.block(99)
+
+
+def test_section_block_with_no_indices_is_null():
+    md = "# A\n- one\n"
+    s = MDExtractor(md)["A"]
+    assert not s.block()
+    assert s.block().text_plain == ""
+
+
+def test_strict_block_indexing_still_raises():
+    md = "# A\n- one\n"
+    s = MDExtractor(md)["A"]
+    with pytest.raises(IndexError):
+        _ = s.blocks[99]
+
+
+def test_block_bool_truthy_for_real_blocks():
+    md = "# A\nhello\n"
+    s = MDExtractor(md)["A"]
+    assert bool(s.blocks[0]) is True
+
+
+def test_extractor_block_proxies_to_root():
+    md = "# A\nhi\n"
+    e = MDExtractor(md)
+    # Both routes yield the same null block on miss (root has no body blocks
+    # before its first header child).
+    assert e.block(99).text_plain == e.root.block(99).text_plain == ""
+
+
+def test_user_snippet_works_end_to_end():
+    # The exact pattern from the user's request.
+    md = dedent(
+        """
+        # Sample Module
+        ## 📋 Overview
+        Intro paragraph.
+
+        - ⚡ **Lightweight & Fast** — Minimal footprint.
+        - 🔌 **Plug & Play** — Install in seconds.
+        - 🛡️ **Production Ready** — Battle-tested.
+        """
+    )
+    e = MDExtractor(md)
+    overview = e.get("Sample Module", "📋 Overview")
+    plain = overview.to_dict()["blocks"][1]["children"][1]["text"]
+    # Apply text_plain via the Block route (since dict has raw text).
+    assert overview.blocks[1].children[1].text_plain == \
+        "🔌 Plug & Play — Install in seconds."
+    # Soft chain matches the strict one.
+    assert overview.block(1, 1).text_plain == \
+        overview.blocks[1].children[1].text_plain
+    # Raw dict text still has markers (lossless round-trip preserved).
+    assert "**" in plain

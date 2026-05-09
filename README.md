@@ -122,6 +122,40 @@ overview.body         # raw prose + nested subsections
 overview.content      # the full slice including the header line
 ```
 
+### Reaching a single block — `block()` and `text_plain`
+
+When you've isolated a single piece of text inside the block tree,
+`Block.text_plain` strips the inline Markdown markers so you don't have
+to round-trip through `to_text()`:
+
+```python
+overview.blocks[1].children[1].text          # '🔌 **Plug & Play** — Install in seconds...'
+overview.blocks[1].children[1].text_plain    # '🔌 Plug & Play — Install in seconds...'
+```
+
+`block.text` is kept raw on purpose — `to_dict()` / `to_json()` is a
+lossless round-trip of the source. `text_plain` is the on-demand
+plain-text view.
+
+For chains that might break (a missing list item, an empty section),
+use `Section.block(*indices)` and `Block.get(*indices)`. These return
+a *null Block* on out-of-range indices instead of raising
+`IndexError` — so the chain stays safe end-to-end:
+
+```python
+overview.block(1, 1).text_plain            # '🔌 Plug & Play — ...'
+overview.block(99, 99).text_plain          # ''  — no exception
+
+# Equivalent two-step form (block() walks .blocks; .get() walks .children):
+overview.block(1).get(1).text_plain
+
+bool(overview.block(99))                   # False — null sentinel
+```
+
+`section.blocks[i]` / `block.children[j]` keep raising `IndexError` on
+out-of-range — strict access stays strict. Use `block()` / `.get()` only
+when you want soft fall-through.
+
 ### `to_list()` — flatten body to strings
 
 One entry per top-level block. Lists expand to one entry per top-level
@@ -276,6 +310,7 @@ Each `Section` exposes three text views:
 | `.to_dict()` / `.to_json(**kw)` | Serialise the tree (with body blocks). |
 | `.to_text()` | Body rendered as plain text. |
 | `.to_html(xpath=None)` | Body rendered as HTML, optionally XPath-filtered. |
+| `.block(*indices)` | Soft index into root's body block tree (null Block on miss). |
 | `.content` | Original Markdown source. |
 
 ### `Section`
@@ -301,6 +336,7 @@ Each `Section` exposes three text views:
 | `.to_json(**kw)` | `json.dumps` of `to_dict()`. |
 | `.to_text()` | Body rendered as plain text (Markdown markers stripped). |
 | `.to_html(xpath=None)` | Body rendered as HTML, optionally XPath-filtered. |
+| `.block(*indices)` | Soft index walk into the body block tree (null Block on miss). |
 | `.tree()` | ASCII tree of this subsection. |
 | `str(section)` | Same as `.content`. |
 
@@ -311,9 +347,12 @@ A node in the body block tree.
 | Member | Description |
 |--------|-------------|
 | `.kind` | One of `paragraph`, `list`, `ordered_list`, `list_item`, `code`, `blockquote`. |
-| `.text` | The block's own text (empty for list / ordered_list containers). |
+| `.text` | The block's own text — raw, with inline Markdown markers preserved. |
+| `.text_plain` | `.text` with inline markers stripped (`**bold**` → `bold`, `[t](u)` → `t`, …). |
 | `.children` | Nested blocks (list items, sub-lists, indented paragraphs). |
 | `.info` | Code-fence language, e.g. `"python"`. |
+| `.get(*indices)` | Soft index walk into `.children` (null Block on miss). Chainable. |
+| `bool(block)` | `False` only for the null sentinel returned by `get()` / `Section.block()`. |
 | `.walk()` | Yield this block and every descendant. |
 | `.to_dict()` | JSON-friendly nested dict. |
 

@@ -19,6 +19,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional
 
+from md_extract.text_renderer import strip_inline
+
 
 # A block is one of:
 #   "paragraph"     — a run of non-empty, non-structural lines
@@ -46,6 +48,42 @@ class Block:
         if self.children:
             out["children"] = [c.to_dict() for c in self.children]
         return out
+
+    @property
+    def text_plain(self) -> str:
+        """``self.text`` with inline Markdown markers stripped.
+
+        ``**bold**`` → ``bold``, ``[label](url)`` → ``label``, etc.
+        Returns ``""`` for the null sentinel returned by :meth:`get`.
+        """
+        return strip_inline(self.text)
+
+    def get(self, *indices: int) -> "Block":
+        """Soft index walk into ``self.children`` by integer index.
+
+        ``block.get(1, 0)`` is equivalent to ``block.children[1].children[0]``
+        but returns a *null Block* sentinel (whose ``text_plain`` is
+        ``""``) if any index is out of range. Subsequent ``.get()`` calls
+        on the null block keep returning the null block, so chains like
+        ``block.get(99).get(0).text_plain`` are safe.
+        """
+        node: "Block" = self
+        for i in indices:
+            if not node:
+                return _null_block()
+            n = len(node.children)
+            if not n or i < -n or i >= n:
+                return _null_block()
+            node = node.children[i]
+        return node
+
+    def __bool__(self) -> bool:
+        """``False`` only for the null sentinel returned by :meth:`get`.
+
+        Real blocks always have a non-empty ``kind`` (the parser assigns
+        one); the sentinel uses ``kind=""``.
+        """
+        return self.kind != ""
 
 
 _FENCE_RE = re.compile(r"^([ ]{0,3})(`{3,}|~{3,})(.*)$")
@@ -298,3 +336,24 @@ def flatten(blocks: List[Block]) -> List[str]:
         else:
             out.append(b.text)
     return out
+
+
+# ---------------------------------------------------------------- null sentinel
+
+_NULL_BLOCK: Optional[Block] = None
+
+
+def _null_block() -> Block:
+    """Cached null-Block sentinel returned by :meth:`Block.get` /
+    :meth:`Section.block` on out-of-range indices.
+
+    Behaviour:
+    - ``bool(b)`` is ``False``
+    - ``b.text_plain`` → ``""``
+    - ``b.text`` → ``""``, ``b.children`` → ``[]``
+    - ``b.get(*more)`` → keeps returning this sentinel
+    """
+    global _NULL_BLOCK
+    if _NULL_BLOCK is None:
+        _NULL_BLOCK = Block(kind="", text="", children=[], info="")
+    return _NULL_BLOCK

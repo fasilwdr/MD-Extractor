@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
 
+from md_extract.blocks import Block
 from md_extract.parser import parse
 from md_extract.section import Section
 
@@ -145,6 +146,13 @@ class MDExtractor:
         for XPath usage notes.
         """
         return self._root.to_html(xpath)
+
+    def block(self, *indices: int) -> Block:
+        """Soft index walk into the document's body blocks.
+
+        See :meth:`Section.block` for the per-section equivalent.
+        """
+        return self._root.block(*indices)
 
     def get(self, *path: str) -> Section:
         """Soft path walk on the document — see :meth:`Section.get`.

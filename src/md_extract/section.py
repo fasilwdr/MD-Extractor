@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-from md_extract.blocks import Block, flatten, parse_blocks
+from md_extract.blocks import Block, _null_block, flatten, parse_blocks
 from md_extract.html_renderer import query_xpath, render
 from md_extract.text_renderer import render_text
 
@@ -172,6 +172,26 @@ class Section:
         title roster (which is what :meth:`list` returns).
         """
         return flatten(self.blocks)
+
+    def block(self, *indices: int) -> Block:
+        """Soft index walk into this section's body block tree.
+
+        The first index addresses :attr:`blocks`; subsequent indices walk
+        into ``.children``. Returns a *null Block* (whose ``text_plain``
+        is ``""``) if any index is out of range, so chains like
+        ``section.block(99, 0).text_plain`` stay safe.
+
+        ``section.block(1, 1).text_plain`` is the soft equivalent of
+        ``section.blocks[1].children[1].text_plain``.
+        """
+        if not indices:
+            return _null_block()
+        blocks = self.blocks
+        head, *rest = indices
+        n = len(blocks)
+        if not n or head < -n or head >= n:
+            return _null_block()
+        return blocks[head].get(*rest)
 
     def to_text(self) -> str:
         """Render the body to plain text with Markdown markers stripped.

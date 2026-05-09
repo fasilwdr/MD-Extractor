@@ -16,9 +16,10 @@ Output rules:
 from __future__ import annotations
 
 import re
-from typing import Iterable, List
+from typing import TYPE_CHECKING, Iterable, List
 
-from md_extract.blocks import Block
+if TYPE_CHECKING:
+    from md_extract.blocks import Block
 
 
 _INLINE_CODE_RE = re.compile(r"`([^`]+)`")
