@@ -184,8 +184,15 @@ def _consume_list(lines, i, end, base_indent, ordered: bool):
                 j = k
                 break
             if next_indent == list_indent and (next_b or next_o):
+                # Same indent + list marker: stay in this list ONLY if the
+                # marker type matches (- vs 1.). A different type starts a
+                # new list at the outer level.
+                same_type = next_o if ordered else next_b
+                if same_type:
+                    j = k
+                    continue
                 j = k
-                continue
+                break
             if next_indent > list_indent:
                 # Indented continuation belongs to the previous item.
                 j = k
@@ -201,8 +208,12 @@ def _consume_list(lines, i, end, base_indent, ordered: bool):
         m_o = _ORDERED_RE.match(line)
 
         if indent == list_indent and (m_b or m_o):
-            # New item at this list's level.
+            # Marker at this list's indent — keep it only if the type
+            # matches; a different type ends this list so the outer
+            # parser can start a fresh one.
             m = m_o if ordered else m_b
+            if m is None:
+                break
             rest = m.group("rest")
             item = Block(kind="list_item", text=rest.strip())
             items.append(item)

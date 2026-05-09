@@ -131,6 +131,13 @@ class MDExtractor:
         """
         return self._root.to_list()
 
+    def to_text(self) -> str:
+        """Render the document body to plain text (Markdown markers stripped).
+
+        See :meth:`Section.to_text` for the per-section equivalent.
+        """
+        return self._root.to_text()
+
     def to_html(self, xpath: Optional[str] = None) -> Union[str, List[str]]:
         """Render the whole document's body to HTML.
 
@@ -138,6 +145,16 @@ class MDExtractor:
         for XPath usage notes.
         """
         return self._root.to_html(xpath)
+
+    def get(self, *path: str) -> Section:
+        """Soft path walk on the document — see :meth:`Section.get`.
+
+        Returns the matched section, or a null section sentinel if any
+        title in ``path`` is missing. The null section is falsy and its
+        ``to_list``/``to_dict``/``to_json``/``to_html``/``to_text``
+        methods all return empty values, so chains stay safe.
+        """
+        return self._root.get(*path)
 
     def tree(self) -> str:
         """ASCII tree of the document's header structure."""

@@ -112,6 +112,8 @@ def query_xpath(html: str, xpath: str) -> List[str]:
     Returns each match as an HTML string. Element matches are serialised;
     string/attribute matches are returned as-is.
     """
+    if not html:
+        return []
     try:
         from lxml import etree, html as lxml_html
     except ImportError as e:  # pragma: no cover - only hit without lxml

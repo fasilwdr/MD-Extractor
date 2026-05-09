@@ -418,3 +418,155 @@ def test_extractor_to_list_and_to_html_proxy_to_root():
     e = MDExtractor(md)
     assert e.to_list() == e.root.to_list()
     assert e.to_html() == e.root.to_html()
+
+
+# ---------------------------------------------------------------- Section.to_json
+
+
+def test_section_to_json_round_trips():
+    import json as _json
+
+    md = "# A\nbody text\n- x\n- y\n"
+    e = MDExtractor(md)
+    parsed = _json.loads(e["A"].to_json())
+    assert parsed["title"] == "A"
+    assert parsed["blocks"][0]["text"] == "body text"
+
+
+def test_section_to_json_passes_kwargs():
+    md = "# A\nhi\n"
+    e = MDExtractor(md)
+    pretty = e["A"].to_json(indent=2)
+    assert "\n" in pretty
+    assert pretty.startswith("{")
+
+
+# ---------------------------------------------------------------- soft .get() + null sentinel
+
+
+def test_get_present_returns_section():
+    md = "# A\n## B\nbody\n"
+    e = MDExtractor(md)
+    s = e.get("A", "B")
+    assert s.title == "B"
+    assert bool(s) is True
+
+
+def test_get_missing_returns_falsy_null_section():
+    md = "# A\n"
+    e = MDExtractor(md)
+    null = e.get("Nope")
+    assert bool(null) is False
+    assert null.title == ""
+
+
+def test_null_section_to_methods_return_empty():
+    md = "# A\n"
+    e = MDExtractor(md)
+    null = e.get("Nope", "Deeper")
+    assert null.to_list() == []
+    assert null.to_html() == ""
+    assert null.to_text() == ""
+    d = null.to_dict()
+    assert d == {"title": "", "level": 0, "text": "", "blocks": [], "children": []}
+    import json as _json
+    assert _json.loads(null.to_json()) == d
+
+
+def test_null_section_xpath_returns_empty_without_lxml_call():
+    # Empty HTML short-circuits before importing lxml, so this works
+    # even in environments where the [xpath] extra isn't installed.
+    md = "# A\n"
+    null = MDExtractor(md).get("Nope")
+    assert null.to_html(xpath=".//ul") == []
+
+
+def test_get_chains_through_null():
+    md = "# A\n"
+    e = MDExtractor(md)
+    # Even after a missing path, further .get() calls keep returning null.
+    assert e.get("Nope").get("Still nope").to_list() == []
+
+
+def test_strict_bracket_access_still_raises():
+    # Soft access via .get() must not soften the strict [] contract.
+    e = MDExtractor("# A\n")
+    with pytest.raises(KeyError):
+        _ = e["Nope"]
+
+
+def test_get_with_no_path_returns_self_root():
+    e = MDExtractor("# A\n")
+    assert e.get() is e.root
+
+
+# ---------------------------------------------------------------- to_text
+
+
+def test_to_text_strips_inline_formatting():
+    md = "# A\nThis is **bold**, *em*, `code`, and a [link](https://x.com).\n"
+    text = MDExtractor(md)["A"].to_text()
+    assert "**" not in text
+    assert "`" not in text
+    assert "[link]" not in text
+    assert "bold" in text and "em" in text and "code" in text and "link" in text
+
+
+def test_to_text_renders_unordered_and_ordered_lists():
+    md = dedent(
+        """
+        # A
+        - one
+        - two
+
+        1. first
+        2. second
+        """
+    )
+    text = MDExtractor(md)["A"].to_text()
+    assert "- one" in text
+    assert "- two" in text
+    assert "1. first" in text
+    assert "2. second" in text
+
+
+def test_to_text_indents_nested_bullet_children():
+    md = dedent(
+        """
+        # FAQ
+        - **Q1?**
+
+            Answer one.
+        """
+    )
+    text = MDExtractor(md)["FAQ"].to_text()
+    lines = text.splitlines()
+    assert lines[0] == "- Q1?"
+    # The answer paragraph is indented under the bullet.
+    assert any(line.startswith("  Answer one.") for line in lines)
+
+
+def test_to_text_keeps_code_block_verbatim():
+    md = dedent(
+        """
+        # A
+        ```python
+        x = 1 < 2
+        ```
+        """
+    )
+    text = MDExtractor(md)["A"].to_text()
+    assert "x = 1 < 2" in text
+
+
+def test_to_text_image_falls_back_to_alt():
+    md = "# A\n![pretty alt](img.png)\n"
+    text = MDExtractor(md)["A"].to_text()
+    assert "pretty alt" in text
+    assert "img.png" not in text
+
+
+def test_extractor_to_text_proxies_to_root():
+    md = "# A\nhi\n- x\n"
+    e = MDExtractor(md)
+    assert e.to_text() == e.root.to_text()
