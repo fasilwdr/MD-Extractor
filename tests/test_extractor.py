@@ -413,6 +413,54 @@ def test_to_html_xpath_text_extraction():
     assert "beta" in matches
 
 
+def test_to_html_xpath_as_text_returns_text_content():
+    pytest.importorskip("lxml")
+    md = dedent(
+        """
+        # A
+        1. First feature.
+        2. Second feature.
+        """
+    )
+    out = MDExtractor(md)["A"].to_html(xpath="//ol/li[1]", as_text=True)
+    assert out == ["First feature."]
+
+
+def test_to_html_xpath_as_text_recurses_through_inline_tags():
+    # The whole reason as_text exists: /text() drops the <strong> child,
+    # but text_content() flattens it.
+    pytest.importorskip("lxml")
+    md = dedent(
+        """
+        # A
+        - **bold** item one
+        - *em* item two
+        """
+    )
+    s = MDExtractor(md)["A"]
+    direct_text = s.to_html(xpath="//ul/li/text()")
+    flattened = s.to_html(xpath="//ul/li", as_text=True)
+
+    # /text() collects only direct text children — the bolded word is lost.
+    assert all("bold" not in t for t in direct_text)
+    # as_text=True flattens recursively — the bolded word is preserved.
+    assert flattened == ["bold item one", "em item two"]
+
+
+def test_to_html_as_text_ignored_without_xpath():
+    pytest.importorskip("lxml")
+    md = "# A\nhi\n"
+    # as_text only kicks in when xpath is given.
+    assert MDExtractor(md)["A"].to_html(as_text=True) == MDExtractor(md)["A"].to_html()
+
+
+def test_extractor_to_html_as_text_proxies_to_root():
+    pytest.importorskip("lxml")
+    md = "# A\n- one\n- two\n"
+    e = MDExtractor(md)
+    assert e.to_html(xpath="//li", as_text=True) == e.root.to_html(xpath="//li", as_text=True)
+
+
 def test_extractor_to_list_and_to_html_proxy_to_root():
     md = "# A\nintro\n- x\n- y\n"
     e = MDExtractor(md)

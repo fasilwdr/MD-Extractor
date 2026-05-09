@@ -250,6 +250,41 @@ s.to_html(xpath=".//strong")
 # ['<strong>Lightweight</strong>']
 ```
 
+#### Getting just the text value
+
+When you want the *data* inside the matched elements rather than the
+markup, you have two options:
+
+**1. `as_text=True`** — flatten each match to its text content, including
+text nested inside inline tags (`<strong>`, `<em>`, `<code>`, …):
+
+```python
+s.to_html(xpath=".//ul/li", as_text=True)
+# ['Lightweight — small footprint.',
+#  'Flexible — extensible by design.',
+#  'Tested — full coverage.']
+
+s.to_html(xpath=".//ul/li[1]", as_text=True)
+# ['Lightweight — small footprint.']
+```
+
+**2. `/text()` in the XPath itself** — works without the `as_text` flag,
+but only collects *direct* text nodes. Text wrapped in inline tags is
+skipped:
+
+```python
+s.to_html(xpath=".//ul/li/text()")
+# [' — small footprint.',
+#  ' — extensible by design.',
+#  ' — full coverage.']
+# Note: 'Lightweight' / 'Flexible' / 'Tested' are missing — they sit
+# inside <strong>/<em>/<code>, which /text() doesn't enter.
+```
+
+Use `as_text=True` when items contain inline formatting; use `/text()`
+when you specifically want only the loose text and not the wrapped
+content.
+
 XPath uses `lxml` and is opt-in via the `[xpath]` extra:
 
 ```bash
@@ -333,7 +368,7 @@ Each `Section` exposes three text views:
 | `.to_list()` | Body flattened to strings (proxies to root). |
 | `.to_dict()` / `.to_json(**kw)` | Serialise the tree (with body blocks). |
 | `.to_text()` | Body rendered as plain text. |
-| `.to_html(xpath=None)` | Body rendered as HTML, optionally XPath-filtered. |
+| `.to_html(xpath=None, as_text=False)` | Body rendered as HTML, optionally XPath-filtered (`as_text=True` returns text values). |
 | `.block(*indices)` | Soft index into root's body block tree (null Block on miss). |
 | `.content` | Original Markdown source. |
 
@@ -359,7 +394,7 @@ Each `Section` exposes three text views:
 | `.to_dict()` | Nested dict — `blocks` (body) and `children` (header subsections). |
 | `.to_json(**kw)` | `json.dumps` of `to_dict()`. |
 | `.to_text()` | Body rendered as plain text (Markdown markers stripped). |
-| `.to_html(xpath=None)` | Body rendered as HTML, optionally XPath-filtered. |
+| `.to_html(xpath=None, as_text=False)` | Body rendered as HTML, optionally XPath-filtered (`as_text=True` returns text values). |
 | `.block(*indices)` | Soft index walk into the body block tree (null Block on miss). |
 | `.tree()` | ASCII tree of this subsection. |
 | `str(section)` | Same as `.content`. |

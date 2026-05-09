@@ -224,13 +224,19 @@ class Section:
         """Shorthand for ``json.dumps(self.to_dict(), **kwargs)``."""
         return json.dumps(self.to_dict(), **kwargs)
 
-    def to_html(self, xpath: Optional[str] = None) -> Union[str, List[str]]:
+    def to_html(
+        self, xpath: Optional[str] = None, as_text: bool = False
+    ) -> Union[str, List[str]]:
         """Render this section's body as an HTML fragment.
 
         Without ``xpath``, returns the full HTML string. With ``xpath``,
-        returns a list of matched fragments (each match is itself an
-        HTML string for element matches, or the raw value for string /
-        attribute matches).
+        returns a list of matched fragments — each is an HTML string for
+        element matches, or the raw value for string / attribute matches.
+
+        Pass ``as_text=True`` to flatten element matches to their text
+        content (recursively, so inline tags like ``<strong>`` are
+        unwrapped). Useful when you want the data inside the element
+        rather than the markup. Has no effect when ``xpath`` is ``None``.
 
         XPath support requires the optional ``lxml`` extra::
 
@@ -239,7 +245,7 @@ class Section:
         html = render(self.blocks)
         if xpath is None:
             return html
-        return query_xpath(html, xpath)
+        return query_xpath(html, xpath, as_text=as_text)
 
     def tree(self, _indent: int = 0) -> str:
         """ASCII tree rendering of this section and its descendants."""

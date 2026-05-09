@@ -139,13 +139,15 @@ class MDExtractor:
         """
         return self._root.to_text()
 
-    def to_html(self, xpath: Optional[str] = None) -> Union[str, List[str]]:
+    def to_html(
+        self, xpath: Optional[str] = None, as_text: bool = False
+    ) -> Union[str, List[str]]:
         """Render the whole document's body to HTML.
 
-        See :meth:`Section.to_html` for the per-section equivalent and
-        for XPath usage notes.
+        See :meth:`Section.to_html` for the per-section equivalent,
+        XPath usage notes, and the ``as_text`` parameter.
         """
-        return self._root.to_html(xpath)
+        return self._root.to_html(xpath, as_text=as_text)
 
     def block(self, *indices: int) -> Block:
         """Soft index walk into the document's body blocks.

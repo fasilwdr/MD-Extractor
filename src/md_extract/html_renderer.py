@@ -105,12 +105,19 @@ def _inline(text: str) -> str:
     return out
 
 
-def query_xpath(html: str, xpath: str) -> List[str]:
+def query_xpath(html: str, xpath: str, as_text: bool = False) -> List[str]:
     """Run ``xpath`` over ``html`` and return the matched fragments.
 
     Requires the ``lxml`` extra (``pip install md-extractor[xpath]``).
-    Returns each match as an HTML string. Element matches are serialised;
+    By default each element match is returned as an HTML string;
     string/attribute matches are returned as-is.
+
+    With ``as_text=True``, element matches are flattened to their text
+    content (recursively — so ``<li><strong>Bold</strong> rest</li>``
+    yields ``"Bold rest"``). Use this when you want the data inside the
+    element rather than the markup. Compare to writing ``/text()`` in
+    the XPath itself, which only collects *direct* text children and
+    skips text nested inside inline tags.
     """
     if not html:
         return []
@@ -129,12 +136,15 @@ def query_xpath(html: str, xpath: str) -> List[str]:
         if isinstance(r, str):
             out.append(r)
         elif isinstance(r, etree._Element):
-            # ``with_tail=False`` excludes sibling text after the closing
-            # tag — callers asking for an element fragment want just the
-            # element, not its trailing context.
-            out.append(
-                lxml_html.tostring(r, encoding="unicode", with_tail=False).rstrip()
-            )
+            if as_text:
+                out.append(r.text_content())
+            else:
+                # ``with_tail=False`` excludes sibling text after the closing
+                # tag — callers asking for an element fragment want just the
+                # element, not its trailing context.
+                out.append(
+                    lxml_html.tostring(r, encoding="unicode", with_tail=False).rstrip()
+                )
         else:
             out.append(str(r))
     return out
