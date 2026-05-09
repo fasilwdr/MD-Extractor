@@ -129,7 +129,12 @@ def query_xpath(html: str, xpath: str) -> List[str]:
         if isinstance(r, str):
             out.append(r)
         elif isinstance(r, etree._Element):
-            out.append(lxml_html.tostring(r, encoding="unicode"))
+            # ``with_tail=False`` excludes sibling text after the closing
+            # tag — callers asking for an element fragment want just the
+            # element, not its trailing context.
+            out.append(
+                lxml_html.tostring(r, encoding="unicode", with_tail=False).rstrip()
+            )
         else:
             out.append(str(r))
     return out

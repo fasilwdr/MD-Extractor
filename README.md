@@ -45,8 +45,20 @@ md = """
 # Section 1
 Some content here.
 
+- **Lightweight** — small footprint.
+- *Flexible* — extensible by design.
+- `Tested` — full coverage.
+
 ## Subsection 1.1
 More details.
+
+## FAQ
+- **Which versions are supported?**
+
+    Versions 1.0 and up.
+- **Where do I report bugs?**
+
+    Open an issue on GitHub.
 """
 
 e = MDExtractor(md)
@@ -58,10 +70,10 @@ e.list()                             # ['Section 1']
 e[""]                                # synthetic root: the whole document
 ```
 
-Load straight from disk:
+Every example below uses this same `md`. Load straight from disk instead:
 
 ```python
-e = MDExtractor.from_file("README.md")
+e = MDExtractor.from_file("docs/guide.md")
 ```
 
 ---
@@ -114,12 +126,12 @@ Every `Section` parses its own body lazily into a tree of blocks
 powers `to_list`, `to_dict`, `to_html`, and `to_text`.
 
 ```python
-overview = e["Overview"]
+s = e["Section 1"]
 
-overview.blocks       # the parsed Block tree (lazy, cached)
-overview.text         # raw prose, no header line, no subsections
-overview.body         # raw prose + nested subsections
-overview.content      # the full slice including the header line
+s.blocks       # the parsed Block tree (lazy, cached)
+s.text         # raw prose, no header line, no subsections
+s.body         # raw prose + nested subsections
+s.content      # the full slice including the header line
 ```
 
 ### Reaching a single block — `block()` and `text_plain`
@@ -129,8 +141,8 @@ When you've isolated a single piece of text inside the block tree,
 to round-trip through `to_text()`:
 
 ```python
-overview.blocks[1].children[1].text          # '🔌 **Plug & Play** — Install in seconds...'
-overview.blocks[1].children[1].text_plain    # '🔌 Plug & Play — Install in seconds...'
+s.blocks[1].children[1].text          # '*Flexible* — extensible by design.'
+s.blocks[1].children[1].text_plain    # 'Flexible — extensible by design.'
 ```
 
 `block.text` is kept raw on purpose — `to_dict()` / `to_json()` is a
@@ -143,13 +155,13 @@ a *null Block* on out-of-range indices instead of raising
 `IndexError` — so the chain stays safe end-to-end:
 
 ```python
-overview.block(1, 1).text_plain            # '🔌 Plug & Play — ...'
-overview.block(99, 99).text_plain          # ''  — no exception
+s.block(1, 1).text_plain            # 'Flexible — extensible by design.'
+s.block(99, 99).text_plain          # ''  — no exception
 
 # Equivalent two-step form (block() walks .blocks; .get() walks .children):
-overview.block(1).get(1).text_plain
+s.block(1).get(1).text_plain
 
-bool(overview.block(99))                   # False — null sentinel
+bool(s.block(99))                   # False — null sentinel
 ```
 
 `section.blocks[i]` / `block.children[j]` keep raising `IndexError` on
@@ -159,42 +171,47 @@ when you want soft fall-through.
 ### `to_list()` — flatten body to strings
 
 One entry per top-level block. Lists expand to one entry per top-level
-item:
+item; `text` is preserved raw (use `text_plain` per-item if you want
+markers stripped):
 
 ```python
-overview.to_list()
-# ['Intro paragraph.',
-#  'First feature',
-#  'Second feature',
-#  'Third feature']
+s.to_list()
+# ['Some content here.',
+#  '**Lightweight** — small footprint.',
+#  '*Flexible* — extensible by design.',
+#  '`Tested` — full coverage.']
 ```
 
 ### `to_dict()` / `to_json()` — full structured output
 
 Header subsections live under `children`; the body block tree lives under
 `blocks`. Indented continuation paragraphs under a bullet (FAQ-style)
-are attached as that bullet's `children`.
+are attached as that bullet's `children`:
 
 ```python
-faq.to_dict()
+e["Section 1"]["FAQ"].to_dict()
 # {
 #   "title": "FAQ",
 #   "level": 2,
 #   "text": "...",
 #   "blocks": [
-#     {"kind": "list", "children": [
+#     {"kind": "list", "text": "", "children": [
 #       {"kind": "list_item",
 #        "text": "**Which versions are supported?**",
 #        "children": [
-#          {"kind": "paragraph", "text": "Versions 19.0 and up."}
+#          {"kind": "paragraph", "text": "Versions 1.0 and up."}
 #        ]},
-#       ...
+#       {"kind": "list_item",
+#        "text": "**Where do I report bugs?**",
+#        "children": [
+#          {"kind": "paragraph", "text": "Open an issue on GitHub."}
+#        ]}
 #     ]}
 #   ],
 #   "children": []
 # }
 
-faq.to_json(indent=2)
+e["Section 1"]["FAQ"].to_json(indent=2)
 ```
 
 ### `to_text()` — Markdown stripped
@@ -202,28 +219,35 @@ faq.to_json(indent=2)
 Inline markers (`**bold**`, `*em*`, `` `code` ``, `[link](url)`,
 `![alt](url)`) are reduced to their visible text. Bullets become
 `- ` lines, ordered items become `1. `, nested children indent four
-spaces, and fenced code is kept verbatim.
+spaces, and fenced code is kept verbatim:
 
 ```python
-overview.to_text()
-# Intro paragraph.
+print(s.to_text())
+# Some content here.
 #
-# - First feature
-# - Second feature
-# - Third feature
+# - Lightweight — small footprint.
+# - Flexible — extensible by design.
+# - Tested — full coverage.
 ```
 
 ### `to_html()` — render to HTML, optionally filter with XPath
 
 ```python
-overview.to_html()
-# '<p>Intro paragraph.</p>\n<ul>\n<li>First feature</li>...'
+s.to_html()
+# <p>Some content here.</p>
+# <ul>
+# <li><strong>Lightweight</strong> — small footprint.</li>
+# <li><em>Flexible</em> — extensible by design.</li>
+# <li><code>Tested</code> — full coverage.</li>
+# </ul>
 
-overview.to_html(xpath=".//ul/li")
-# ['<li>First feature</li>', '<li>Second feature</li>', ...]
+s.to_html(xpath=".//ul/li")
+# ['<li><strong>Lightweight</strong> — small footprint.</li>',
+#  '<li><em>Flexible</em> — extensible by design.</li>',
+#  '<li><code>Tested</code> — full coverage.</li>']
 
-overview.to_html(xpath=".//li/text()")
-# ['First feature', 'Second feature', ...]
+s.to_html(xpath=".//strong")
+# ['<strong>Lightweight</strong>']
 ```
 
 XPath uses `lxml` and is opt-in via the `[xpath]` extra:
