@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/fasilwdr/MD-Extractor/main/assets/md-extractor.svg" alt="md-extractor logo">
+</p>
+
 # md-extractor
 
 Turn a Markdown document into a navigable tree of sections keyed by header,
