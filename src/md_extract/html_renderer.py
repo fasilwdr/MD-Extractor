@@ -7,7 +7,7 @@ constructs (``**bold**``, ``*em*``, ``` `code` ```, ``[text](url)``,
 ``![alt](url)``).
 
 The output is plain HTML5 with no styling. It is intentionally minimal:
-``md-extractor``'s job is structural extraction, not pretty rendering.
+``md-extract``'s job is structural extraction, not pretty rendering.
 """
 
 from __future__ import annotations
@@ -108,7 +108,7 @@ def _inline(text: str) -> str:
 def query_xpath(html: str, xpath: str, as_text: bool = False) -> List[str]:
     """Run ``xpath`` over ``html`` and return the matched fragments.
 
-    Requires the ``lxml`` extra (``pip install md-extractor[xpath]``).
+    Requires the ``lxml`` extra (``pip install md-extract[xpath]``).
     By default each element match is returned as an HTML string;
     string/attribute matches are returned as-is.
 
@@ -126,7 +126,7 @@ def query_xpath(html: str, xpath: str, as_text: bool = False) -> List[str]:
     except ImportError as e:  # pragma: no cover - only hit without lxml
         raise ModuleNotFoundError(
             "XPath queries require the 'lxml' package. "
-            "Install with: pip install md-extractor[xpath]"
+            "Install with: pip install md-extract[xpath]"
         ) from e
 
     fragment = lxml_html.fragment_fromstring(html, create_parent="div")

@@ -1,4 +1,4 @@
-"""md-extractor — extract structured sections from Markdown.
+"""md-extract — extract structured sections from Markdown.
 
 Public API:
     MDExtractor — entry point for parsing a Markdown document.

@@ -240,7 +240,7 @@ class Section:
 
         XPath support requires the optional ``lxml`` extra::
 
-            pip install md-extractor[xpath]
+            pip install md-extract[xpath]
         """
         html = render(self.blocks)
         if xpath is None:

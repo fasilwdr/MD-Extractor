@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "md-extractor"
+name = "md-extract"
 dynamic = ["version"]
 description = "Extract structured sections from Markdown by header — bracket-style access with robust handling of code blocks, tables, math, and YAML front matter."
 readme = "README.md"
@@ -38,11 +38,11 @@ dev = ["pytest>=7", "lxml>=4.9", "build", "twine"]
 xpath = ["lxml>=4.9"]
 
 [project.urls]
-Homepage = "https://github.com/fasilwdr/MD-Extractor"
-Documentation = "https://github.com/fasilwdr/MD-Extractor#readme"
-Source = "https://github.com/fasilwdr/MD-Extractor"
-Issues = "https://github.com/fasilwdr/MD-Extractor/issues"
-Changelog = "https://github.com/fasilwdr/MD-Extractor/releases"
+Homepage = "https://github.com/fasilwdr/MD-Extract"
+Documentation = "https://github.com/fasilwdr/MD-Extract#readme"
+Source = "https://github.com/fasilwdr/MD-Extract"
+Issues = "https://github.com/fasilwdr/MD-Extract/issues"
+Changelog = "https://github.com/fasilwdr/MD-Extract/releases"
 
 [tool.setuptools.dynamic]
 version = { attr = "md_extract.__version__" }
