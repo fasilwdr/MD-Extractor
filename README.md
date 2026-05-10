@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/fasilwdr/MD-Extract/main/assets/md-extract.svg" alt="md-extract logo">
+  <img src="https://raw.githubusercontent.com/fasilwdr/MD-Extractor/main/assets/markdown-extractor.svg" alt="markdown-extractor logo">
 </p>
 
-# md-extract
+# markdown-extractor
 
 Turn a Markdown document into a navigable tree of sections keyed by header,
 then drop into the body of any section to get its blocks, plain text, JSON,
@@ -23,13 +23,13 @@ or HTML — with optional XPath filtering.
 ## Installation
 
 ```bash
-pip install md-extract
+pip install markdown-extractor
 ```
 
 For XPath support on `to_html()`:
 
 ```bash
-pip install md-extract[xpath]
+pip install markdown-extractor[xpath]
 ```
 
 From a local checkout:
@@ -43,7 +43,7 @@ pip install -e .
 ## Quick start
 
 ```python
-from md_extract import MDExtractor
+from markdown_extractor import MDExtractor
 
 md = """
 # Section 1
@@ -292,7 +292,7 @@ content.
 XPath uses `lxml` and is opt-in via the `[xpath]` extra:
 
 ```bash
-pip install md-extract[xpath]
+pip install markdown-extractor[xpath]
 ```
 
 Without `lxml`, plain `to_html()` still works — only `to_html(xpath=...)`

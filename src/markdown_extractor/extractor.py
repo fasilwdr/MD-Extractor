@@ -6,9 +6,9 @@ import json
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
 
-from md_extract.blocks import Block
-from md_extract.parser import parse
-from md_extract.section import Section
+from markdown_extractor.blocks import Block
+from markdown_extractor.parser import parse
+from markdown_extractor.section import Section
 
 
 class MDExtractor:

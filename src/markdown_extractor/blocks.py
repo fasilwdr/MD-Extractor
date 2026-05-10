@@ -1,6 +1,6 @@
 """Body-block parser — turn a section's prose into a tree of blocks.
 
-The header parser in :mod:`md_extract.parser` splits a document by header
+The header parser in :mod:`markdown_extractor.parser` splits a document by header
 *level* and stops there: it never looks inside a section's body. This
 module is the second pass — it walks the lines of a single section and
 produces a small block tree (paragraphs, lists, list items, code blocks,
@@ -19,7 +19,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Iterator, List, Optional
 
-from md_extract.text_renderer import strip_inline
+from markdown_extractor.text_renderer import strip_inline
 
 
 # A block is one of:

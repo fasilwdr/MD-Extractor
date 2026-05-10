@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Iterator, List, Optional, Union
 
-from md_extract.blocks import Block, _null_block, flatten, parse_blocks
-from md_extract.html_renderer import query_xpath, render
-from md_extract.text_renderer import render_text
+from markdown_extractor.blocks import Block, _null_block, flatten, parse_blocks
+from markdown_extractor.html_renderer import query_xpath, render
+from markdown_extractor.text_renderer import render_text
 
 
 class Section:
@@ -240,7 +240,7 @@ class Section:
 
         XPath support requires the optional ``lxml`` extra::
 
-            pip install md-extract[xpath]
+            pip install markdown-extractor[xpath]
         """
         html = render(self.blocks)
         if xpath is None:

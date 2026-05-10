@@ -50,7 +50,7 @@ def parse(content: str) -> Tuple[List[Header], List[str]]:
     """Return ``(headers, lines)`` for ``content``.
 
     ``lines`` is the document split on ``\n`` (newlines stripped) and is
-    shared with :class:`md_extract.section.Section` so each section can
+    shared with :class:`markdown_extractor.section.Section` so each section can
     rebuild its own slice of the source on demand.
     """
     lines = content.split("\n")

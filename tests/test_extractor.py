@@ -3,7 +3,7 @@ from textwrap import dedent
 
 import pytest
 
-from md_extract import MDExtractor, Section
+from markdown_extractor import MDExtractor, Section
 
 
 # ---------------------------------------------------------------- basic API

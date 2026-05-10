@@ -1,13 +1,13 @@
 """Render the parsed block tree to HTML.
 
 Pure-Python, zero-dependency renderer for the same Markdown subset that
-:mod:`md_extract.blocks` understands: paragraphs, ordered/unordered
+:mod:`markdown_extractor.blocks` understands: paragraphs, ordered/unordered
 lists with nesting, code fences, blockquotes — plus the common inline
 constructs (``**bold**``, ``*em*``, ``` `code` ```, ``[text](url)``,
 ``![alt](url)``).
 
 The output is plain HTML5 with no styling. It is intentionally minimal:
-``md-extract``'s job is structural extraction, not pretty rendering.
+``markdown-extractor``'s job is structural extraction, not pretty rendering.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ import re
 from html import escape
 from typing import Iterable, List
 
-from md_extract.blocks import Block
+from markdown_extractor.blocks import Block
 
 
 def render(blocks: Iterable[Block]) -> str:
@@ -108,7 +108,7 @@ def _inline(text: str) -> str:
 def query_xpath(html: str, xpath: str, as_text: bool = False) -> List[str]:
     """Run ``xpath`` over ``html`` and return the matched fragments.
 
-    Requires the ``lxml`` extra (``pip install md-extract[xpath]``).
+    Requires the ``lxml`` extra (``pip install markdown-extractor[xpath]``).
     By default each element match is returned as an HTML string;
     string/attribute matches are returned as-is.
 
@@ -126,7 +126,7 @@ def query_xpath(html: str, xpath: str, as_text: bool = False) -> List[str]:
     except ImportError as e:  # pragma: no cover - only hit without lxml
         raise ModuleNotFoundError(
             "XPath queries require the 'lxml' package. "
-            "Install with: pip install md-extract[xpath]"
+            "Install with: pip install markdown-extractor[xpath]"
         ) from e
 
     fragment = lxml_html.fragment_fromstring(html, create_parent="div")

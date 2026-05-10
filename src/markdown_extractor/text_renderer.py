@@ -1,6 +1,6 @@
 """Render the parsed block tree to plain text — Markdown stripped.
 
-Same subset as :mod:`md_extract.html_renderer`: paragraphs, ordered /
+Same subset as :mod:`markdown_extractor.html_renderer`: paragraphs, ordered /
 unordered lists with nesting, code fences (kept verbatim), blockquotes,
 and the common inline markers (``**bold**``, ``*em*``, ``` `code` ```,
 ``[text](url)``, ``![alt](url)``).
@@ -19,7 +19,7 @@ import re
 from typing import TYPE_CHECKING, Iterable, List
 
 if TYPE_CHECKING:
-    from md_extract.blocks import Block
+    from markdown_extractor.blocks import Block
 
 
 _INLINE_CODE_RE = re.compile(r"`([^`]+)`")
