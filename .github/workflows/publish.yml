@@ -1,14 +1,11 @@
 name: publish
 
-# Publish to PyPI when a GitHub Release is published, OR when a `v*` tag is pushed.
+# Publish to PyPI when a GitHub Release is published.
 # Uses PyPI Trusted Publishing (OIDC) — no API token stored in the repo.
 
 on:
   release:
     types: [published]
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 jobs:
@@ -70,3 +67,5 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
