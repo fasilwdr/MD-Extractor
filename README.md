@@ -4,6 +4,10 @@
 
 # markdown-extractor
 
+[![GitHub Release](https://img.shields.io/github/release/fasilwdr/MD-Extractor.svg)]()
+[![Python Version](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/downloads/)
+[![Downloads](https://static.pepy.tech/badge/markdown-extractor)](https://pepy.tech/project/markdown-extractor)
+
 Turn a Markdown document into a navigable tree of sections keyed by header,
 then drop into the body of any section to get its blocks, plain text, JSON,
 or HTML — with optional XPath filtering.

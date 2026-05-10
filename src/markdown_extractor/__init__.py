@@ -10,5 +10,5 @@ from markdown_extractor.blocks import Block
 from markdown_extractor.extractor import MDExtractor
 from markdown_extractor.section import Section
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = ["MDExtractor", "Section", "Block", "__version__"]
