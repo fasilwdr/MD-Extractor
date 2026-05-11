@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Iterator, List, Optional
+from typing import List, Optional
 
+from markdown_extractor._collections import BlockList
 from markdown_extractor.text_renderer import strip_inline
 
 
@@ -33,13 +34,20 @@ from markdown_extractor.text_renderer import strip_inline
 class Block:
     kind: str
     text: str = ""
-    children: List["Block"] = field(default_factory=list)
+    children: "BlockList" = field(default_factory=BlockList)
     info: str = ""  # code language, list marker style, etc.
 
-    def walk(self) -> Iterator["Block"]:
-        yield self
+    def walk(self) -> "BlockList":
+        """Return this block and every descendant in depth-first order.
+
+        The result is a :class:`BlockList`, so you can chain
+        ``block.walk().filtered(kind="code")``.
+        """
+        out: BlockList = BlockList()
+        out.append(self)
         for child in self.children:
-            yield from child.walk()
+            out.extend(child.walk())
+        return out
 
     def to_dict(self) -> dict:
         out: dict = {"kind": self.kind, "text": self.text}
@@ -105,12 +113,12 @@ def _expand_indent(s: str) -> int:
     return col
 
 
-def parse_blocks(text: str) -> List[Block]:
+def parse_blocks(text: str) -> BlockList:
     """Parse a section's body text into a list of top-level blocks."""
     if not text or not text.strip():
-        return []
+        return BlockList()
     lines = text.split("\n")
-    return _parse(lines, 0, len(lines), base_indent=0)
+    return BlockList(_parse(lines, 0, len(lines), base_indent=0))
 
 
 def _parse(lines: List[str], start: int, end: int, base_indent: int) -> List[Block]:
@@ -202,7 +210,7 @@ def _consume_list(lines, i, end, base_indent, ordered: bool):
     """
     list_indent = _expand_indent(lines[i])
     kind = "ordered_list" if ordered else "list"
-    items: List[Block] = []
+    items: BlockList = BlockList()
     j = i
     while j < end:
         line = lines[j]
@@ -355,5 +363,5 @@ def _null_block() -> Block:
     """
     global _NULL_BLOCK
     if _NULL_BLOCK is None:
-        _NULL_BLOCK = Block(kind="", text="", children=[], info="")
+        _NULL_BLOCK = Block(kind="", text="", children=BlockList(), info="")
     return _NULL_BLOCK

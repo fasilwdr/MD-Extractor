@@ -176,6 +176,66 @@ bool(s.block(99))                   # False — null sentinel
 out-of-range — strict access stays strict. Use `block()` / `.get()` only
 when you want soft fall-through.
 
+### `.filtered(**kwargs)` — narrow any collection in place
+
+Collection accessors return `BlockList` / `SectionList`, both `list`
+subclasses that add a `.filtered(**kwargs)` method for chainable,
+attribute-based narrowing. The kwargs form keeps the API usable from
+Jinja2 / Django templates (which can't define lambdas). Existing list
+operations (indexing, iteration, `len()`, `isinstance(x, list)`) keep
+working unchanged.
+
+```python
+s = e["Section 1"]
+
+# Equality (most common):
+s.blocks.filtered(kind="paragraph")
+e["Section 1"].children.filtered(level=2)
+
+# Multiple kwargs AND together:
+s.blocks.filtered(kind="code", info="python")
+
+# Operator suffixes:
+e.headers().filtered(level__gte=2)
+e.headers().filtered(level__in=[2, 3])
+e.headers().filtered(title__startswith="Sub")
+
+# Chains keep the typed return — both results are SectionList:
+e.headers() \
+    .filtered(level=2) \
+    .filtered(title__startswith="A")
+
+# No kwargs → a shallow copy of the same subclass.
+e.headers().filtered()
+```
+
+Supported operator suffixes:
+
+| Suffix | Meaning |
+|--------|---------|
+| *(none)* | `==` |
+| `__ne` | `!=` |
+| `__lt`, `__lte`, `__gt`, `__gte` | comparison |
+| `__in` | membership in iterable |
+| `__contains` | substring (`b in a`) or container-`in` |
+| `__startswith`, `__endswith` | string prefix / suffix |
+
+Items missing the requested attribute are treated as non-matches — no
+exception. Slices preserve the subclass too, so
+`section.children[1:].filtered(level=2)` works.
+
+The method is available on:
+
+| Returns `BlockList` | Returns `SectionList` |
+|---------------------|------------------------|
+| `Section.blocks` | `Section.children` |
+| `Block.children` | `Section.find(title)` |
+| `Block.walk()` | `Section.walk()` |
+| | `MDExtractor.find(title)` |
+| | `MDExtractor.walk()` |
+| | `MDExtractor.headers()` |
+
+
 ### `to_list()` — flatten body to strings
 
 One entry per top-level block. Lists expand to one entry per top-level
