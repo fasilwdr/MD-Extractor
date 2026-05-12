@@ -238,9 +238,11 @@ The method is available on:
 
 ### `.mapped(path)` — extract / flatten across a collection
 
-`BlockList` and `SectionList` also expose a `.mapped(path)` method —
-Odoo-style attribute traversal that flattens list-valued attributes
-and keeps the typed return so you can keep chaining `.filtered(...)`.
+`BlockList`, `SectionList`, `Section`, and `Block` all expose a
+`.mapped(path)` method — dotted-path attribute traversal that flattens
+list-valued attributes and keeps the typed return so you can keep
+chaining `.filtered(...)`. Calling it on a single `Section` / `Block`
+behaves like a one-element collection, so the same path rules apply.
 
 ```python
 s = e["Section 1"]
@@ -252,13 +254,13 @@ s.children.mapped("blocks")
 # block of Section 1, fully flattened:
 s.blocks.mapped("children")             # → 3 list_items (the bullets)
 
-# Equivalent — chained calls produce the same result:
-s.blocks.mapped("children") == s.blocks.mapped("children")
-
 # Two-level dotted path — every inline token under those bullets:
 s.blocks.mapped("children.inlines")
 # → [bold 'Lightweight', text ' — …', em 'Flexible', text ' — …',
 #    code 'Tested',     text ' — …']
+
+# Equivalent — chained calls produce the same result as the dotted path:
+s.blocks.mapped("children.inlines") == s.blocks.mapped("children").mapped("inlines")
 
 # Chain with .filtered() — still a BlockList:
 s.blocks.mapped("children").filtered(kind="list_item")
@@ -266,6 +268,11 @@ s.blocks.mapped("children").filtered(kind="list_item")
 # Scalar attributes return a plain list:
 s.children.mapped("title")              # ['Subsection 1.1', 'FAQ']
 e.headers().mapped("title")             # ['Section 1', 'Subsection 1.1', 'FAQ']
+
+# Works on a single Section / Block too — treated as a one-element collection:
+s.mapped("title")                       # ['Section 1']
+s.mapped("children.blocks")             # BlockList — every block under every child
+s.blocks[1].mapped("children.inlines")  # same dotted-path rules from a single Block
 ```
 
 Behaviour notes:
@@ -280,6 +287,9 @@ Behaviour notes:
 - Items missing the attribute are skipped silently — same convention
   as `.filtered()`.
 - `coll.mapped("")` returns a shallow copy of the same subclass.
+- On a single `Section` / `Block`, `record.mapped(path)` is equivalent
+  to wrapping it in a one-element list and mapping — so a scalar path
+  returns a list of one (e.g. `section.mapped("title") == [section.title]`).
 
 
 ### `to_list()` — flatten body to strings

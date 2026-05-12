@@ -159,6 +159,21 @@ class Section:
             out.extend(child.walk())
         return out
 
+    def mapped(self, path: str) -> Any:
+        """Dotted-path attribute traversal on a single section.
+
+        Equivalent to ``SectionList([self]).mapped(path)`` — treats this
+        section as a one-element collection so the same dotted-path /
+        flattening rules apply::
+
+            usage.mapped("children")               # SectionList of subsections
+            usage.mapped("children.blocks")        # BlockList — flat
+            usage.mapped("title")                  # ['Usage']  (scalar → list)
+
+        See :meth:`FilteredList.mapped` for full semantics.
+        """
+        return SectionList([self]).mapped(path)
+
     # ------------------------------------------------------------------ body blocks
 
     @property

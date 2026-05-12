@@ -1054,3 +1054,30 @@ def test_mapped_dotted_through_missing_scalar_stops_silently():
     e = MDExtractor(_usage_doc())
     usage = e.get_section("Usage")
     assert usage.children.mapped("title.somedeep") == []
+
+
+def test_section_mapped_acts_like_one_element_collection():
+    # Calling .mapped on a single Section behaves the same as
+    # SectionList([section]).mapped(...) — single record acts as a
+    # one-element collection.
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    assert usage.mapped("title") == ["Usage"]
+    children = usage.mapped("children")
+    assert isinstance(children, SectionList)
+    assert [s.title for s in children] == ["A", "B"]
+    blocks = usage.mapped("children.blocks")
+    assert isinstance(blocks, BlockList)
+    assert [b.kind for b in blocks] == ["paragraph", "code", "paragraph"]
+
+
+def test_block_mapped_acts_like_one_element_collection():
+    e = MDExtractor(_usage_doc())
+    s = e.get_section("Usage", "A")
+    para = s.blocks[0]
+    assert para.mapped("text") == ["Para A."]
+    # Paragraph has no nested children → empty BlockList.
+    assert para.mapped("children") == []
+    # But mapped("inlines") returns the inline tokens (BlockList).
+    inlines = para.mapped("inlines")
+    assert isinstance(inlines, BlockList)

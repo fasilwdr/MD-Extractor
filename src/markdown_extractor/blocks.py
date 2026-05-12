@@ -51,6 +51,21 @@ class Block:
             out.extend(child.walk())
         return out
 
+    def mapped(self, path: str):
+        """Dotted-path attribute traversal on a single block.
+
+        Equivalent to ``BlockList([self]).mapped(path)`` — treats this
+        block as a one-element collection so the same dotted-path /
+        flattening rules apply::
+
+            block.mapped("children")           # BlockList of children
+            block.mapped("children.inlines")   # BlockList — flat
+            block.mapped("text")               # [text]      (scalar → list)
+
+        See :meth:`FilteredList.mapped` for full semantics.
+        """
+        return BlockList([self]).mapped(path)
+
     def to_dict(self) -> dict:
         out: dict = {"kind": self.kind, "text": self.text}
         if self.info:
