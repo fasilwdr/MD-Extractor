@@ -236,6 +236,52 @@ The method is available on:
 | | `MDExtractor.headers()` |
 
 
+### `.mapped(path)` — extract / flatten across a collection
+
+`BlockList` and `SectionList` also expose a `.mapped(path)` method —
+Odoo-style attribute traversal that flattens list-valued attributes
+and keeps the typed return so you can keep chaining `.filtered(...)`.
+
+```python
+s = e["Section 1"]
+
+# Pull every body block from every direct subsection (flat BlockList):
+s.children.mapped("blocks")
+
+# Dotted paths walk further — every list_item inside every top-level
+# block of Section 1, fully flattened:
+s.blocks.mapped("children")             # → 3 list_items (the bullets)
+
+# Equivalent — chained calls produce the same result:
+s.blocks.mapped("children") == s.blocks.mapped("children")
+
+# Two-level dotted path — every inline token under those bullets:
+s.blocks.mapped("children.inlines")
+# → [bold 'Lightweight', text ' — …', em 'Flexible', text ' — …',
+#    code 'Tested',     text ' — …']
+
+# Chain with .filtered() — still a BlockList:
+s.blocks.mapped("children").filtered(kind="list_item")
+
+# Scalar attributes return a plain list:
+s.children.mapped("title")              # ['Subsection 1.1', 'FAQ']
+e.headers().mapped("title")             # ['Section 1', 'Subsection 1.1', 'FAQ']
+```
+
+Behaviour notes:
+
+- List-valued attributes (e.g. `.blocks`, `.inlines`, `.children`)
+  are **flattened** into the result.
+- Scalar attributes (e.g. `.title`, `.kind`, `.text`) are appended;
+  the return is a plain `list` (no `.filtered()` chaining).
+- The concrete subclass is preserved when every step yields the same
+  `FilteredList` subclass, so the typed-return chain
+  `… .mapped("blocks").filtered(kind="paragraph")` keeps working.
+- Items missing the attribute are skipped silently — same convention
+  as `.filtered()`.
+- `coll.mapped("")` returns a shallow copy of the same subclass.
+
+
 ### `to_list()` — flatten body to strings
 
 One entry per top-level block. Lists expand to one entry per top-level
