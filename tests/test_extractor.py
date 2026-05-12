@@ -959,3 +959,98 @@ def test_unknown_operator_suffix_treated_as_attr_name():
     # so no matches and no exception.
     e = MDExtractor("# A\n")
     assert e.headers().filtered(unknown__weirdop="x") == []
+
+
+# ---------------------------------------------------------------- .mapped()
+
+
+def _usage_doc():
+    return dedent(
+        """
+        # Usage
+        ## A
+        Para A.
+
+        ```python
+        x = 1
+        ```
+        ## B
+        Para B with **bold** text.
+        """
+    )
+
+
+def test_children_mapped_blocks_returns_blocklist():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    blocks = usage.children.mapped("blocks")
+    assert isinstance(blocks, BlockList)
+    # A: paragraph + code; B: paragraph → 3 top-level blocks total.
+    kinds = [b.kind for b in blocks]
+    assert kinds == ["paragraph", "code", "paragraph"]
+
+
+def test_children_mapped_dotted_path_blocks_inlines():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    inlines = usage.children.mapped("blocks.inlines")
+    assert isinstance(inlines, BlockList)
+    # At minimum: text tokens from both paragraphs, plus a `bold` token.
+    assert len(inlines) >= 3
+    assert any(t.kind == "bold" and t.text == "bold" for t in inlines)
+
+
+def test_mapped_dotted_deep_chain_equivalence():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    one_shot = usage.children.mapped("blocks.inlines")
+    chained = usage.children.mapped("blocks").mapped("inlines")
+    assert list(one_shot) == list(chained)
+    assert isinstance(chained, BlockList)
+
+
+def test_mapped_chains_with_filtered():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    paragraphs = usage.children.mapped("blocks").filtered(kind="paragraph")
+    assert isinstance(paragraphs, BlockList)
+    assert [p.kind for p in paragraphs] == ["paragraph", "paragraph"]
+    assert paragraphs[0].text == "Para A."
+
+
+def test_mapped_scalar_attribute_returns_plain_list():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    titles = usage.children.mapped("title")
+    assert titles == ["A", "B"]
+    assert type(titles) is list  # not a FilteredList subclass
+
+
+def test_mapped_missing_attribute_skips_silently():
+    e = MDExtractor(_usage_doc())
+    s = e.get_section("Usage", "A")
+    # Blocks have no `.nonexistent`; mirrors filtered's silent-miss policy.
+    assert s.blocks.mapped("nonexistent") == []
+
+
+def test_mapped_empty_path_returns_shallow_copy():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    copy = usage.children.mapped("")
+    assert isinstance(copy, SectionList)
+    assert [s.title for s in copy] == ["A", "B"]
+    assert copy is not usage.children
+
+
+def test_mapped_on_empty_collection():
+    empty = SectionList()
+    assert empty.mapped("blocks") == []
+    assert empty.mapped("blocks.inlines") == []
+
+
+def test_mapped_dotted_through_missing_scalar_stops_silently():
+    # Asking for a deeper path on a scalar-valued attribute can't continue
+    # — return []. Consistent with the silent-miss policy.
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    assert usage.children.mapped("title.somedeep") == []
