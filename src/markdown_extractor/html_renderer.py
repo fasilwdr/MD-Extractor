@@ -17,6 +17,14 @@ from html import escape
 from typing import Iterable, List
 
 from markdown_extractor.blocks import Block
+from markdown_extractor.inline import (
+    _BOLD_RE,
+    _EM_STAR_RE,
+    _EM_UNDER_RE,
+    _IMG_RE,
+    _INLINE_CODE_RE,
+    _LINK_RE,
+)
 
 
 def render(blocks: Iterable[Block]) -> str:
@@ -49,13 +57,9 @@ def _render_block(block: Block) -> str:
 # ---------------------------------------------------------------- inline
 
 # Order matters: replace inline code first (so its contents are not further
-# transformed), then images, links, bold, em.
-_CODE_RE = re.compile(r"`([^`]+)`")
-_IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
-_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
-_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
-_EM_RE = re.compile(r"(?<![*\w])\*([^*\n]+?)\*(?!\w)")
-_EM_UNDER_RE = re.compile(r"(?<![\w_])_([^_\n]+?)_(?!\w)")
+# transformed), then images, links, bold, em. Regex patterns live in
+# :mod:`markdown_extractor.inline` so the parser and both renderers
+# share one source of truth.
 
 
 def _inline(text: str) -> str:
@@ -76,7 +80,7 @@ def _inline(text: str) -> str:
     def repl_code(m: re.Match) -> str:
         return stash(f"<code>{escape(m.group(1))}</code>")
 
-    out = _CODE_RE.sub(repl_code, text)
+    out = _INLINE_CODE_RE.sub(repl_code, text)
     out = escape(out, quote=False)
 
     def repl_img(m: re.Match) -> str:
@@ -94,7 +98,7 @@ def _inline(text: str) -> str:
     out = _IMG_RE.sub(repl_img, out)
     out = _LINK_RE.sub(repl_link, out)
     out = _BOLD_RE.sub(lambda m: f"<strong>{m.group(1)}</strong>", out)
-    out = _EM_RE.sub(lambda m: f"<em>{m.group(1)}</em>", out)
+    out = _EM_STAR_RE.sub(lambda m: f"<em>{m.group(1)}</em>", out)
     out = _EM_UNDER_RE.sub(lambda m: f"<em>{m.group(1)}</em>", out)
 
     # Restore stashed HTML.

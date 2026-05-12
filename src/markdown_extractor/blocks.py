@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 from markdown_extractor._collections import BlockList
+from markdown_extractor.inline import parse_inlines
 from markdown_extractor.text_renderer import strip_inline
 
 
@@ -36,6 +37,7 @@ class Block:
     text: str = ""
     children: "BlockList" = field(default_factory=BlockList)
     info: str = ""  # code language, list marker style, etc.
+    inlines: "BlockList" = field(default_factory=BlockList)  # structured inline tokens (paragraph / list_item)
 
     def walk(self) -> "BlockList":
         """Return this block and every descendant in depth-first order.
@@ -55,6 +57,8 @@ class Block:
             out["info"] = self.info
         if self.children:
             out["children"] = [c.to_dict() for c in self.children]
+        if self.inlines:
+            out["inlines"] = [t.to_dict() for t in self.inlines]
         return out
 
     @property
@@ -260,8 +264,8 @@ def _consume_list(lines, i, end, base_indent, ordered: bool):
             m = m_o if ordered else m_b
             if m is None:
                 break
-            rest = m.group("rest")
-            item = Block(kind="list_item", text=rest.strip())
+            rest = m.group("rest").strip()
+            item = Block(kind="list_item", text=rest, inlines=parse_inlines(rest))
             items.append(item)
             j += 1
             continue
@@ -326,7 +330,8 @@ def _consume_paragraph(lines, i, end, base_indent):
             break
         body.append(stripped)
         j += 1
-    return Block(kind="paragraph", text=" ".join(body)), j
+    text = " ".join(body)
+    return Block(kind="paragraph", text=text, inlines=parse_inlines(text)), j
 
 
 def flatten(blocks: List[Block]) -> List[str]:
@@ -358,7 +363,7 @@ def _null_block() -> Block:
     Behaviour:
     - ``bool(b)`` is ``False``
     - ``b.text_plain`` → ``""``
-    - ``b.text`` → ``""``, ``b.children`` → ``[]``
+    - ``b.text`` → ``""``, ``b.children`` → ``[]``, ``b.inlines`` → ``[]``
     - ``b.get(*more)`` → keeps returning this sentinel
     """
     global _NULL_BLOCK
