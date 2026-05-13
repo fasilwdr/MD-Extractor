@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Iterator, List, Optional, Union
 
+from markdown_extractor._collections import SectionList
 from markdown_extractor.blocks import Block
 from markdown_extractor.parser import parse
 from markdown_extractor.section import Section
@@ -103,19 +104,21 @@ class MDExtractor:
         """Navigate by a sequence of titles (root → leaf)."""
         return self._root.get_section(*path)
 
-    def find(self, title: str) -> List[Section]:
+    def find(self, title: str) -> SectionList:
         """Find every section whose title equals ``title`` (any depth)."""
         return self._root.find(title)
 
-    def walk(self) -> Iterator[Section]:
-        """Iterate over every header section in the document, depth-first."""
-        for section in self._root.walk():
-            if section.level > 0:
-                yield section
+    def walk(self) -> SectionList:
+        """Every header section in the document, depth-first.
 
-    def headers(self) -> List[Section]:
-        """All header sections as a flat list (depth-first order)."""
-        return list(self.walk())
+        Returns a :class:`SectionList` (the synthetic root is excluded),
+        so the result can be chained with ``.filtered(...)``.
+        """
+        return self._root.walk().filtered(level__gt=0)
+
+    def headers(self) -> SectionList:
+        """All header sections as a flat :class:`SectionList`."""
+        return self.walk()
 
     def to_dict(self) -> dict:
         """JSON-friendly dict of the whole tree."""

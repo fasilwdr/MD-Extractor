@@ -3,7 +3,7 @@ from textwrap import dedent
 
 import pytest
 
-from markdown_extractor import MDExtractor, Section
+from markdown_extractor import BlockList, MDExtractor, Section, SectionList
 
 
 # ---------------------------------------------------------------- basic API
@@ -756,3 +756,328 @@ def test_user_snippet_works_end_to_end():
         overview.blocks[1].children[1].text_plain
     # Raw dict text still has markers (lossless round-trip preserved).
     assert "**" in plain
+
+
+# ---------------------------------------------------------------- .filtered()
+
+
+def test_blocks_filtered_by_kind():
+    md = dedent(
+        """
+        # S
+        Para one.
+
+        - bullet a
+        - bullet b
+
+        ```
+        code
+        ```
+        """
+    )
+    s = MDExtractor(md)["S"]
+    paragraphs = s.blocks.filtered(kind="paragraph")
+    assert isinstance(paragraphs, BlockList)
+    assert [b.text for b in paragraphs] == ["Para one."]
+
+
+def test_children_filtered_returns_typed_list():
+    md = "# A\n## A1\n## A2\n### A2a\n"
+    e = MDExtractor(md)
+    h2 = e["A"].children.filtered(level=2)
+    assert isinstance(h2, SectionList)
+    assert [s.title for s in h2] == ["A1", "A2"]
+    # isinstance still passes for plain list
+    assert isinstance(h2, list)
+
+
+def test_walk_returns_filterable():
+    md = "# A\n## A1\n## A2\n# B\n"
+    e = MDExtractor(md)
+    walked = e.walk()
+    assert isinstance(walked, SectionList)
+    only_h2 = walked.filtered(level=2)
+    assert [s.title for s in only_h2] == ["A1", "A2"]
+
+
+def test_section_walk_includes_self_and_descendants():
+    md = "# A\n## A1\n## A2\n"
+    e = MDExtractor(md)
+    walked = e["A"].walk()
+    assert isinstance(walked, SectionList)
+    assert [s.title for s in walked] == ["A", "A1", "A2"]
+
+
+def test_find_returns_filterable():
+    md = "# A\n## Foo\n# B\n## Foo\n"
+    e = MDExtractor(md)
+    foos = e.find("Foo")
+    assert isinstance(foos, SectionList)
+    # Narrow further by level — kwargs filtering works on a find() result.
+    h2_foos = foos.filtered(level=2)
+    assert isinstance(h2_foos, SectionList)
+    assert len(h2_foos) == 2
+
+
+def test_headers_returns_filterable():
+    md = "# A\n## A1\n### A1a\n"
+    e = MDExtractor(md)
+    headers = e.headers()
+    assert isinstance(headers, SectionList)
+    deep = headers.filtered(level__gte=2)
+    assert [s.title for s in deep] == ["A1", "A1a"]
+
+
+def test_filtered_returning_empty_keeps_subclass_type():
+    md = "# A\nbody\n"
+    s = MDExtractor(md)["A"]
+    empty = s.blocks.filtered(kind="nonexistent")
+    assert empty == []
+    assert isinstance(empty, BlockList)
+
+
+def test_slice_preserves_subclass_type():
+    md = "# A\n## A1\n## A2\n## A3\n"
+    children = MDExtractor(md)["A"].children
+    sliced = children[1:]
+    assert isinstance(sliced, SectionList)
+    assert [s.title for s in sliced] == ["A2", "A3"]
+    # Sliced result is still filterable (no kwargs = shallow copy).
+    assert len(sliced.filtered()) == 2
+
+
+def test_block_children_default_is_filterable():
+    md = dedent(
+        """
+        # S
+        - top
+            - nested a
+            - nested b
+        """
+    )
+    s = MDExtractor(md)["S"]
+    outer_list = s.blocks[0]
+    assert outer_list.kind == "list"
+    # The single top-level item has one nested list among its children.
+    nested_lists = outer_list.children[0].children.filtered(kind="list")
+    assert isinstance(nested_lists, BlockList)
+    assert len(nested_lists) == 1
+
+
+def test_block_walk_returns_block_list():
+    md = dedent(
+        """
+        # S
+        - top
+            - nested
+        """
+    )
+    s = MDExtractor(md)["S"]
+    walked = s.blocks[0].walk()
+    assert isinstance(walked, BlockList)
+    items = walked.filtered(kind="list_item")
+    assert isinstance(items, BlockList)
+    assert len(items) == 2
+
+
+def test_chained_filters_keep_type():
+    md = "# A\n## A1\n### A1a\n## A2\n# B\n## B1\n"
+    e = MDExtractor(md)
+    result = (
+        e.headers()
+        .filtered(level=2)
+        .filtered(title__startswith="A")
+    )
+    assert isinstance(result, SectionList)
+    assert [s.title for s in result] == ["A1", "A2"]
+
+
+# ---------- operator-specific coverage
+
+
+def test_multiple_kwargs_are_anded():
+    md = "# S\n```python\nx = 1\n```\n\n```\nplain\n```\n"
+    s = MDExtractor(md)["S"]
+    py = s.blocks.filtered(kind="code", info="python")
+    assert len(py) == 1
+    assert py[0].info == "python"
+
+
+def test_ne_operator():
+    md = "# A\n## A1\n### A1a\n"
+    e = MDExtractor(md)
+    not_h1 = e.headers().filtered(level__ne=1)
+    assert [s.title for s in not_h1] == ["A1", "A1a"]
+
+
+def test_lt_lte_gt_gte_operators():
+    e = MDExtractor("# A\n## B\n### C\n#### D\n")
+    assert [s.title for s in e.headers().filtered(level__lt=2)] == ["A"]
+    assert [s.title for s in e.headers().filtered(level__lte=2)] == ["A", "B"]
+    assert [s.title for s in e.headers().filtered(level__gt=3)] == ["D"]
+    assert [s.title for s in e.headers().filtered(level__gte=3)] == ["C", "D"]
+
+
+def test_in_operator():
+    e = MDExtractor("# A\n## B\n### C\n")
+    only_h1_h3 = e.headers().filtered(level__in=[1, 3])
+    assert [s.title for s in only_h1_h3] == ["A", "C"]
+
+
+def test_startswith_endswith_operators():
+    e = MDExtractor("# Section A\n## Subsection 1\n## Other\n")
+    assert [s.title for s in e.walk().filtered(title__startswith="Sub")] == [
+        "Subsection 1"
+    ]
+    assert [s.title for s in e.walk().filtered(title__endswith="A")] == ["Section A"]
+
+
+def test_contains_operator_on_string():
+    e = MDExtractor("# Hello World\n## Goodbye\n")
+    hits = e.walk().filtered(title__contains="orld")
+    assert [s.title for s in hits] == ["Hello World"]
+
+
+def test_no_kwargs_returns_shallow_copy():
+    e = MDExtractor("# A\n# B\n")
+    original = e.headers()
+    copy = original.filtered()
+    assert [s.title for s in copy] == ["A", "B"]
+    assert copy is not original
+    assert isinstance(copy, SectionList)
+
+
+def test_missing_attribute_treated_as_no_match():
+    # Block has no `.level`; filtering by it should match nothing, not raise.
+    s = MDExtractor("# S\nbody\n")["S"]
+    assert s.blocks.filtered(level=1) == []
+
+
+def test_unknown_operator_suffix_treated_as_attr_name():
+    # `foo__weirdop=x` — `weirdop` is not in the operator table, so the
+    # whole key is treated as an attribute name. No such attribute exists,
+    # so no matches and no exception.
+    e = MDExtractor("# A\n")
+    assert e.headers().filtered(unknown__weirdop="x") == []
+
+
+# ---------------------------------------------------------------- .mapped()
+
+
+def _usage_doc():
+    return dedent(
+        """
+        # Usage
+        ## A
+        Para A.
+
+        ```python
+        x = 1
+        ```
+        ## B
+        Para B with **bold** text.
+        """
+    )
+
+
+def test_children_mapped_blocks_returns_blocklist():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    blocks = usage.children.mapped("blocks")
+    assert isinstance(blocks, BlockList)
+    # A: paragraph + code; B: paragraph → 3 top-level blocks total.
+    kinds = [b.kind for b in blocks]
+    assert kinds == ["paragraph", "code", "paragraph"]
+
+
+def test_children_mapped_dotted_path_blocks_inlines():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    inlines = usage.children.mapped("blocks.inlines")
+    assert isinstance(inlines, BlockList)
+    # At minimum: text tokens from both paragraphs, plus a `bold` token.
+    assert len(inlines) >= 3
+    assert any(t.kind == "bold" and t.text == "bold" for t in inlines)
+
+
+def test_mapped_dotted_deep_chain_equivalence():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    one_shot = usage.children.mapped("blocks.inlines")
+    chained = usage.children.mapped("blocks").mapped("inlines")
+    assert list(one_shot) == list(chained)
+    assert isinstance(chained, BlockList)
+
+
+def test_mapped_chains_with_filtered():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    paragraphs = usage.children.mapped("blocks").filtered(kind="paragraph")
+    assert isinstance(paragraphs, BlockList)
+    assert [p.kind for p in paragraphs] == ["paragraph", "paragraph"]
+    assert paragraphs[0].text == "Para A."
+
+
+def test_mapped_scalar_attribute_returns_plain_list():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    titles = usage.children.mapped("title")
+    assert titles == ["A", "B"]
+    assert type(titles) is list  # not a FilteredList subclass
+
+
+def test_mapped_missing_attribute_skips_silently():
+    e = MDExtractor(_usage_doc())
+    s = e.get_section("Usage", "A")
+    # Blocks have no `.nonexistent`; mirrors filtered's silent-miss policy.
+    assert s.blocks.mapped("nonexistent") == []
+
+
+def test_mapped_empty_path_returns_shallow_copy():
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    copy = usage.children.mapped("")
+    assert isinstance(copy, SectionList)
+    assert [s.title for s in copy] == ["A", "B"]
+    assert copy is not usage.children
+
+
+def test_mapped_on_empty_collection():
+    empty = SectionList()
+    assert empty.mapped("blocks") == []
+    assert empty.mapped("blocks.inlines") == []
+
+
+def test_mapped_dotted_through_missing_scalar_stops_silently():
+    # Asking for a deeper path on a scalar-valued attribute can't continue
+    # — return []. Consistent with the silent-miss policy.
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    assert usage.children.mapped("title.somedeep") == []
+
+
+def test_section_mapped_acts_like_one_element_collection():
+    # Calling .mapped on a single Section behaves the same as
+    # SectionList([section]).mapped(...) — single record acts as a
+    # one-element collection.
+    e = MDExtractor(_usage_doc())
+    usage = e.get_section("Usage")
+    assert usage.mapped("title") == ["Usage"]
+    children = usage.mapped("children")
+    assert isinstance(children, SectionList)
+    assert [s.title for s in children] == ["A", "B"]
+    blocks = usage.mapped("children.blocks")
+    assert isinstance(blocks, BlockList)
+    assert [b.kind for b in blocks] == ["paragraph", "code", "paragraph"]
+
+
+def test_block_mapped_acts_like_one_element_collection():
+    e = MDExtractor(_usage_doc())
+    s = e.get_section("Usage", "A")
+    para = s.blocks[0]
+    assert para.mapped("text") == ["Para A."]
+    # Paragraph has no nested children → empty BlockList.
+    assert para.mapped("children") == []
+    # But mapped("inlines") returns the inline tokens (BlockList).
+    inlines = para.mapped("inlines")
+    assert isinstance(inlines, BlockList)

@@ -176,6 +176,122 @@ bool(s.block(99))                   # False — null sentinel
 out-of-range — strict access stays strict. Use `block()` / `.get()` only
 when you want soft fall-through.
 
+### `.filtered(**kwargs)` — narrow any collection in place
+
+Collection accessors return `BlockList` / `SectionList`, both `list`
+subclasses that add a `.filtered(**kwargs)` method for chainable,
+attribute-based narrowing. The kwargs form keeps the API usable from
+Jinja2 / Django templates (which can't define lambdas). Existing list
+operations (indexing, iteration, `len()`, `isinstance(x, list)`) keep
+working unchanged.
+
+```python
+s = e["Section 1"]
+
+# Equality (most common):
+s.blocks.filtered(kind="paragraph")
+e["Section 1"].children.filtered(level=2)
+
+# Multiple kwargs AND together:
+s.blocks.filtered(kind="code", info="python")
+
+# Operator suffixes:
+e.headers().filtered(level__gte=2)
+e.headers().filtered(level__in=[2, 3])
+e.headers().filtered(title__startswith="Sub")
+
+# Chains keep the typed return — both results are SectionList:
+e.headers() \
+    .filtered(level=2) \
+    .filtered(title__startswith="A")
+
+# No kwargs → a shallow copy of the same subclass.
+e.headers().filtered()
+```
+
+Supported operator suffixes:
+
+| Suffix | Meaning |
+|--------|---------|
+| *(none)* | `==` |
+| `__ne` | `!=` |
+| `__lt`, `__lte`, `__gt`, `__gte` | comparison |
+| `__in` | membership in iterable |
+| `__contains` | substring (`b in a`) or container-`in` |
+| `__startswith`, `__endswith` | string prefix / suffix |
+
+Items missing the requested attribute are treated as non-matches — no
+exception. Slices preserve the subclass too, so
+`section.children[1:].filtered(level=2)` works.
+
+The method is available on:
+
+| Returns `BlockList` | Returns `SectionList` |
+|---------------------|------------------------|
+| `Section.blocks` | `Section.children` |
+| `Block.children` | `Section.find(title)` |
+| `Block.walk()` | `Section.walk()` |
+| | `MDExtractor.find(title)` |
+| | `MDExtractor.walk()` |
+| | `MDExtractor.headers()` |
+
+
+### `.mapped(path)` — extract / flatten across a collection
+
+`BlockList`, `SectionList`, `Section`, and `Block` all expose a
+`.mapped(path)` method — dotted-path attribute traversal that flattens
+list-valued attributes and keeps the typed return so you can keep
+chaining `.filtered(...)`. Calling it on a single `Section` / `Block`
+behaves like a one-element collection, so the same path rules apply.
+
+```python
+s = e["Section 1"]
+
+# Pull every body block from every direct subsection (flat BlockList):
+s.children.mapped("blocks")
+
+# Dotted paths walk further — every list_item inside every top-level
+# block of Section 1, fully flattened:
+s.blocks.mapped("children")             # → 3 list_items (the bullets)
+
+# Two-level dotted path — every inline token under those bullets:
+s.blocks.mapped("children.inlines")
+# → [bold 'Lightweight', text ' — …', em 'Flexible', text ' — …',
+#    code 'Tested',     text ' — …']
+
+# Equivalent — chained calls produce the same result as the dotted path:
+s.blocks.mapped("children.inlines") == s.blocks.mapped("children").mapped("inlines")
+
+# Chain with .filtered() — still a BlockList:
+s.blocks.mapped("children").filtered(kind="list_item")
+
+# Scalar attributes return a plain list:
+s.children.mapped("title")              # ['Subsection 1.1', 'FAQ']
+e.headers().mapped("title")             # ['Section 1', 'Subsection 1.1', 'FAQ']
+
+# Works on a single Section / Block too — treated as a one-element collection:
+s.mapped("title")                       # ['Section 1']
+s.mapped("children.blocks")             # BlockList — every block under every child
+s.blocks[1].mapped("children.inlines")  # same dotted-path rules from a single Block
+```
+
+Behaviour notes:
+
+- List-valued attributes (e.g. `.blocks`, `.inlines`, `.children`)
+  are **flattened** into the result.
+- Scalar attributes (e.g. `.title`, `.kind`, `.text`) are appended;
+  the return is a plain `list` (no `.filtered()` chaining).
+- The concrete subclass is preserved when every step yields the same
+  `FilteredList` subclass, so the typed-return chain
+  `… .mapped("blocks").filtered(kind="paragraph")` keeps working.
+- Items missing the attribute are skipped silently — same convention
+  as `.filtered()`.
+- `coll.mapped("")` returns a shallow copy of the same subclass.
+- On a single `Section` / `Block`, `record.mapped(path)` is equivalent
+  to wrapping it in a one-element list and mapping — so a scalar path
+  returns a list of one (e.g. `section.mapped("title") == [section.title]`).
+
+
 ### `to_list()` — flatten body to strings
 
 One entry per top-level block. Lists expand to one entry per top-level

@@ -15,19 +15,19 @@ Output rules:
 
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Iterable, List
+
+from markdown_extractor.inline import (
+    _BOLD_RE,
+    _EM_STAR_RE,
+    _EM_UNDER_RE,
+    _IMG_RE,
+    _INLINE_CODE_RE,
+    _LINK_RE,
+)
 
 if TYPE_CHECKING:
     from markdown_extractor.blocks import Block
-
-
-_INLINE_CODE_RE = re.compile(r"`([^`]+)`")
-_IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)\)")
-_LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)\s]+)\)")
-_BOLD_RE = re.compile(r"\*\*([^*]+)\*\*")
-_EM_STAR_RE = re.compile(r"(?<![*\w])\*([^*\n]+?)\*(?!\w)")
-_EM_UNDER_RE = re.compile(r"(?<![\w_])_([^_\n]+?)_(?!\w)")
 
 
 def strip_inline(text: str) -> str:

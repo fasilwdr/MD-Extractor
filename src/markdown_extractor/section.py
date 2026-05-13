@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Dict, Iterator, List, Optional, Union
 
+from markdown_extractor._collections import BlockList, SectionList
 from markdown_extractor.blocks import Block, _null_block, flatten, parse_blocks
 from markdown_extractor.html_renderer import query_xpath, render
 from markdown_extractor.text_renderer import render_text
@@ -43,9 +44,9 @@ class Section:
         self.line_start = line_start
         self.line_end = line_end
         self.parent = parent
-        self.children: List["Section"] = []
+        self.children: SectionList = SectionList()
         self._lines = lines
-        self._blocks_cache: Optional[List[Block]] = None
+        self._blocks_cache: Optional[BlockList] = None
 
     # ------------------------------------------------------------------ slices
 
@@ -133,31 +134,59 @@ class Section:
             node = found
         return node
 
-    def find(self, title: str) -> List["Section"]:
-        """All descendants whose title equals ``title`` (depth-first order)."""
-        results: List[Section] = []
+    def find(self, title: str) -> SectionList:
+        """All descendants whose title equals ``title`` (depth-first order).
+
+        Returns a :class:`SectionList`, so the result can be chained with
+        ``.filtered(...)``.
+        """
+        results: SectionList = SectionList()
         for child in self.children:
             if child.title == title:
                 results.append(child)
             results.extend(child.find(title))
         return results
 
-    def walk(self) -> Iterator["Section"]:
-        """Yield this section and every descendant, depth-first."""
-        yield self
+    def walk(self) -> SectionList:
+        """Return this section and every descendant in depth-first order.
+
+        The result is a :class:`SectionList`, so callers can chain
+        ``section.walk().filtered(level=2)``.
+        """
+        out: SectionList = SectionList()
+        out.append(self)
         for child in self.children:
-            yield from child.walk()
+            out.extend(child.walk())
+        return out
+
+    def mapped(self, path: str) -> Any:
+        """Dotted-path attribute traversal on a single section.
+
+        Equivalent to ``SectionList([self]).mapped(path)`` — treats this
+        section as a one-element collection so the same dotted-path /
+        flattening rules apply::
+
+            usage.mapped("children")               # SectionList of subsections
+            usage.mapped("children.blocks")        # BlockList — flat
+            usage.mapped("title")                  # ['Usage']  (scalar → list)
+
+        See :meth:`FilteredList.mapped` for full semantics.
+        """
+        return SectionList([self]).mapped(path)
 
     # ------------------------------------------------------------------ body blocks
 
     @property
-    def blocks(self) -> List[Block]:
+    def blocks(self) -> BlockList:
         """Lazy parse of this section's own prose into a block tree.
 
         The block tree covers paragraphs, ordered/unordered lists with
         nested items, code fences, and blockquotes. Header subsections
         of this section are *not* included — those live in
         :attr:`children`.
+
+        Returns a :class:`BlockList`, so callers can chain
+        ``section.blocks.filtered(kind="paragraph")``.
         """
         if self._blocks_cache is None:
             self._blocks_cache = parse_blocks(self.text)
