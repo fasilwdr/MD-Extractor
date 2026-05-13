@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import Iterator, List, Optional, Union
 
 from markdown_extractor._collections import SectionList
 from markdown_extractor.blocks import Block
