@@ -84,7 +84,14 @@ class FilteredList(list, Generic[T]):
             keep = True
             for attr, op, expected in checks:
                 value = getattr(item, attr, _MISSING)
-                if value is _MISSING or not _OPS[op](value, expected):
+                if value is _MISSING:
+                    keep = False
+                    break
+                try:
+                    matched = _OPS[op](value, expected)
+                except (TypeError, AttributeError):
+                    matched = False
+                if not matched:
                     keep = False
                     break
             if keep:
